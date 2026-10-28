@@ -1,0 +1,150 @@
+# metric_list_v0.yaml
+# Version: 0  (first pass — cadj-stackexchange pack, Week 1)
+# Author : rahulsharmaf81
+# Purpose: Canonical list of every metric the cleaning pipeline tracks.
+#          Consumed by metrics_writer.py and alarms.py.
+#
+# Schema per entry
+# ----------------
+#   name        : metric key (snake_case, unique)
+#   type        : counter | gauge | rate | flag
+#   unit        : human-readable unit string
+#   description : one-liner
+#   alarm_hi    : fire a HIGH alarm when value exceeds this (omit = no upper alarm)
+#   alarm_lo    : fire a LOW  alarm when value falls below this (omit = no lower alarm)
+#   disease     : DISEASES.md code this metric maps to (omit for infrastructure metrics)
+
+version: 0
+pack_id: cadj-stackexchange
+
+metrics:
+
+  # ── Infrastructure / pipeline ───────────────────────────────────────────────
+
+  - name: step
+    type: counter
+    unit: steps
+    description: >
+      Monotonically increasing processing step counter.
+      One step = one document ingested by the pipeline.
+
+  - name: docs_total
+    type: counter
+    unit: documents
+    description: Running count of documents seen so far.
+
+  - name: docs_dropped
+    type: counter
+    unit: documents
+    description: Running count of documents flagged for DROP (no fixable path).
+    alarm_hi: 10   # alert when more than 10 docs dropped cumulatively
+
+  - name: docs_fixed
+    type: counter
+    unit: documents
+    description: Running count of documents that received at least one fix.
+
+  - name: tokens_processed
+    type: counter
+    unit: tokens
+    description: Approximate whitespace-token count for all documents processed so far.
+
+  - name: drop_rate
+    type: rate
+    unit: fraction [0-1]
+    description: docs_dropped / docs_total rolling rate.
+    alarm_hi: 0.05   # alert when more than 5 % of docs are dropped
+
+  # ── Disease A — Character / encoding issues ──────────────────────────────────
+
+  - name: a2_count
+    type: counter
+    unit: occurrences
+    description: Total control-character occurrences found (Disease A2).
+    disease: A2
+    alarm_hi: 500
+
+  - name: a4_count
+    type: counter
+    unit: occurrences
+    description: Total U+FFFD replacement-character occurrences found (Disease A4).
+    disease: A4
+    alarm_hi: 50
+
+  # ── Disease B — Noise / format markers ───────────────────────────────────────
+
+  - name: b2_count
+    type: counter
+    unit: occurrences
+    description: Total HTML-tag occurrences found outside code fences (Disease B2).
+    disease: B2
+    alarm_hi: 200
+
+  - name: b2_hit_rate
+    type: rate
+    unit: fraction [0-1]
+    description: Fraction of documents containing at least one B2 hit.
+    disease: B2
+    alarm_hi: 0.5
+
+  - name: b3_count
+    type: counter
+    unit: occurrences
+    description: >
+      Total ghost-marker occurrences (<issue_start>, <issue_comment>,
+      username_N) found (Disease B3).
+    disease: B3
+    alarm_hi: 1000
+
+  - name: b3_hit_rate
+    type: rate
+    unit: fraction [0-1]
+    description: Fraction of documents containing at least one B3 marker.
+    disease: B3
+    alarm_hi: 0.9   # cadj-stackexchange is 100 % — expected; alarm at 90 %
+
+  - name: b4_count
+    type: counter
+    unit: occurrences
+    description: Template-junk occurrences (Disease B4).
+    disease: B4
+    alarm_hi: 100
+
+  # ── Disease C — Repetition ────────────────────────────────────────────────────
+
+  - name: c2_count
+    type: counter
+    unit: occurrences
+    description: Repeated-line occurrences (Disease C2).
+    disease: C2
+    alarm_hi: 200
+
+  - name: c2_hit_rate
+    type: rate
+    unit: fraction [0-1]
+    description: Fraction of documents containing at least one C2 hit.
+    disease: C2
+    alarm_hi: 0.4
+
+  # ── Disease E/F — Privacy / secret leakage ───────────────────────────────────
+
+  - name: e3_count
+    type: counter
+    unit: occurrences
+    description: Secret-like pattern occurrences (API keys, tokens) found (Disease E3).
+    disease: E3
+    alarm_hi: 5   # even 1 secret is dangerous; alarm early
+
+  - name: f1_count
+    type: counter
+    unit: occurrences
+    description: Personal-data marker occurrences (email, URL) found (Disease F1).
+    disease: F1
+    alarm_hi: 200
+
+  - name: f1_hit_rate
+    type: rate
+    unit: fraction [0-1]
+    description: Fraction of documents containing at least one F1 hit.
+    disease: F1
+    alarm_hi: 0.3
